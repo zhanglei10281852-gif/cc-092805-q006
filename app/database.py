@@ -311,6 +311,12 @@ PERMISSIONS = [
     ("announcements.write", "维护公告", "announcements", "write"),
     ("audit.read", "查看审计", "audit", "read"),
     ("jobs.run", "执行后台任务", "jobs", "run"),
+    ("identity.read", "查看身份候选与认领", "identification", "read"),
+    ("identity.write", "维护身份候选与线索", "identification", "write"),
+    ("identity.claim", "登记家属认领", "identification", "claim"),
+    ("identity.material_check", "校验认领材料", "identification", "material_check"),
+    ("identity.review", "复核认领结论", "identification", "review"),
+    ("identity.sensitive", "查看证件与联系方式明文", "identification", "sensitive"),
 ]
 
 
@@ -380,11 +386,34 @@ def init_db() -> None:
             "INSERT OR IGNORE INTO roles(code,name,description,is_system,created_at,updated_at) VALUES('auditor','审计查看员','只读查看业务与审计记录',1,?,?)",
             (now, now),
         )
+        connection.execute(
+            "INSERT OR IGNORE INTO roles(code,name,description,is_system,created_at,updated_at) VALUES('identity_clerk','身份协办员','登记身份候选、线索与家属认领',1,?,?)",
+            (now, now),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO roles(code,name,description,is_system,created_at,updated_at) VALUES('identity_checker','材料校验员','核验家属认领材料，不负责复核确认',1,?,?)",
+            (now, now),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO roles(code,name,description,is_system,created_at,updated_at) VALUES('identity_reviewer','认领复核员','复核并确认身份结论，可查看证件明文',1,?,?)",
+            (now, now),
+        )
         administrator = connection.execute("SELECT id FROM roles WHERE code='administrator'").fetchone()[0]
         connection.execute(
             "INSERT OR IGNORE INTO role_permissions(role_id,permission_id,granted_at) SELECT ?,id,? FROM permissions",
             (administrator, now),
         )
+        for role_code, permission_codes in (
+            ("identity_clerk", ("identity.read", "identity.write", "identity.claim")),
+            ("identity_checker", ("identity.read", "identity.material_check", "identity.sensitive")),
+            ("identity_reviewer", ("identity.read", "identity.review", "identity.sensitive")),
+        ):
+            role_row = connection.execute("SELECT id FROM roles WHERE code=?", (role_code,)).fetchone()
+            connection.executemany(
+                "INSERT OR IGNORE INTO role_permissions(role_id,permission_id,granted_at) "
+                "SELECT ?,id,? FROM permissions WHERE code=?",
+                [(role_row[0], now, code) for code in permission_codes],
+            )
 
 
 def migrate_db() -> None:

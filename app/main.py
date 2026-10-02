@@ -14,6 +14,8 @@ from app.seismic.service import ensure_schema as ensure_seismic_schema
 from app.compute.router import router as compute_router
 from app.mortuary.router import router as mortuary_router
 from app.mortuary.service import MortuaryService
+from app.identification.router import router as identification_router
+from app.identification.service import IdentificationService
 
 
 @asynccontextmanager
@@ -22,6 +24,7 @@ async def lifespan(app: FastAPI):
     init_db()
     ensure_seismic_schema()
     MortuaryService()
+    IdentificationService()
     yield
     close_connection()
 
@@ -55,6 +58,7 @@ app.include_router(petitions.router)
 app.include_router(seismic_router)
 app.include_router(compute_router)
 app.include_router(mortuary_router)
+app.include_router(identification_router)
 
 
 @app.get("/")
